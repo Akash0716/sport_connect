@@ -1,0 +1,51 @@
+# Render Infrastructure-as-Code (Blueprint) for SportConnect
+# Deploy Backend REST API, Frontend Static Site, and Managed PostgreSQL Database
+
+services:
+  # 1. Backend Express REST API Web Service
+  - type: web
+    name: sportconnect-api
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd server && npm install && npx prisma db push && node prisma/seed.js
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sportconnect-db
+          property: connectionString
+
+  # 2. Frontend React Vite Static Site
+  - type: web
+    name: sportconnect-frontend
+    env: static
+    region: oregon
+    plan: free
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: ./client/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: sportconnect-api
+          property: url
+          append: /api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+# 3. Managed Cloud PostgreSQL Database
+databases:
+  - name: sportconnect-db
+    databaseName: sportconnect
+    user: sportconnect_user
+    plan: free
+    region: oregon

@@ -1,0 +1,79 @@
+// Prisma Schema for SportConnect (Production PostgreSQL)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String               @id @default(uuid())
+  name         String
+  email        String               @unique
+  passwordHash String
+  role         String               @default("PLAYER") // "PLAYER" | "ADMIN"
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  createdSports    Sport[]            @relation("CreatedSports")
+  createdSessions  SportSession[]     @relation("CreatedSessions")
+  participations   SessionParticipant[]
+
+  @@map("users")
+}
+
+model Sport {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  description String?
+  icon        String?
+  createdBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  creator     User           @relation("CreatedSports", fields: [createdBy], references: [id], onDelete: Cascade)
+  sessions    SportSession[]
+
+  @@map("sports")
+}
+
+model SportSession {
+  id                      String               @id @default(uuid())
+  sportId                 String
+  createdBy               String
+  date                    String               // Stored as YYYY-MM-DD
+  startTime               String               // Stored as HH:mm (24hr)
+  venue                   String
+  additionalPlayersNeeded Int
+  status                  String               @default("OPEN") // "OPEN" | "FULL" | "CANCELLED" | "COMPLETED"
+  cancellationReason      String?
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  sport        Sport                @relation(fields: [sportId], references: [id], onDelete: Cascade)
+  creator      User                 @relation("CreatedSessions", fields: [createdBy], references: [id], onDelete: Cascade)
+  participants SessionParticipant[]
+
+  @@index([sportId])
+  @@index([createdBy])
+  @@index([date])
+  @@map("sport_sessions")
+}
+
+model SessionParticipant {
+  id        String       @id @default(uuid())
+  sessionId String
+  userId    String
+  joinedAt  DateTime     @default(now())
+
+  session SportSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, userId])
+  @@index([userId])
+  @@index([sessionId])
+  @@map("session_participants")
+}
